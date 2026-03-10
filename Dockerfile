@@ -19,7 +19,6 @@ RUN echo "deb http://deb.debian.org/debian bookworm-backports main" > /etc/apt/s
     pulseaudio-utils \
     xterm \
     ca-certificates \
-    sudo \
     curl \
     gnupg \
     procps \
@@ -103,10 +102,7 @@ RUN sed -i "s|__BITWARDEN_BASE_URL__|${BITWARDEN_BASE_URL}|g" /etc/brave/policie
 
 # Benutzer anlegen
 RUN groupadd -g ${USER_GID} ${USER_NAME} && \
-    useradd -m -u ${USER_UID} -g ${USER_GID} -s /bin/bash ${USER_NAME} && \
-    usermod -aG sudo ${USER_NAME} && \
-    echo "${USER_NAME} ALL=(ALL) NOPASSWD:ALL" > /etc/sudoers.d/${USER_NAME} && \
-    chmod 0440 /etc/sudoers.d/${USER_NAME}
+    useradd -m -u ${USER_UID} -g ${USER_GID} -s /bin/bash ${USER_NAME}
 
 # Browser Start Script
 RUN cat > /usr/local/bin/start-browser.sh <<'EOF'
@@ -271,7 +267,8 @@ RUN sed -i 's/^max_bpp=.*/max_bpp=16/' /etc/xrdp/xrdp.ini || true && \
     grep -q '^tcp_keepalive=' /etc/xrdp/xrdp.ini || printf 'tcp_keepalive=true\n' >> /etc/xrdp/xrdp.ini
 
 # XRDP Session Timeout
-RUN sed -i 's/^#\?KillDisconnected=.*/KillDisconnected=true/' /etc/xrdp/sesman.ini && \
+RUN sed -i 's/^#\?AllowRootLogin=.*/AllowRootLogin=false/' /etc/xrdp/sesman.ini && \
+    sed -i 's/^#\?KillDisconnected=.*/KillDisconnected=true/' /etc/xrdp/sesman.ini && \
     sed -i 's/^#\?DisconnectedTimeLimit=.*/DisconnectedTimeLimit=300/' /etc/xrdp/sesman.ini && \
     sed -i 's/^#\?IdleTimeLimit=.*/IdleTimeLimit=0/' /etc/xrdp/sesman.ini
 

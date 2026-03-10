@@ -6,6 +6,7 @@ Remote Brave Browser workspace for RDP/Guacamole, packaged as a small Docker Com
 
 - Debian 12 based image with `xrdp`, `openbox`, and Brave Browser
 - Audio over XRDP via `pipewire`, `pipewire-pulse`, `wireplumber`, and `pipewire-module-xrdp`
+- Container-side hardening with disabled XRDP root login and `no-new-privileges`
 - Guacamole-compatible network attachment via `guacamole_guac_remote`
 - Managed Brave policies for privacy defaults and Bitwarden extension bootstrap
 - Browser profile and cache kept out of Git
@@ -38,6 +39,13 @@ docker compose up -d
 ```
 
 The service joins the external Docker network `guacamole_guac_remote`. Ensure that network exists before starting the stack.
+
+## Hardening
+
+- The image does not install `sudo`, and the browser user has no local privilege escalation path.
+- XRDP root logins are disabled in `sesman.ini`.
+- The container runs with Docker `no-new-privileges`.
+- The healthcheck verifies both XRDP processes and the local RDP listener on port `3389`.
 
 ## Audio
 
