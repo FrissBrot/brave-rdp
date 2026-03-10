@@ -5,6 +5,7 @@ Remote Brave Browser workspace for RDP/Guacamole, packaged as a small Docker Com
 ## Features
 
 - Debian 12 based image with `xrdp`, `openbox`, and Brave Browser
+- Audio over XRDP via `pipewire`, `pipewire-pulse`, `wireplumber`, and `pipewire-module-xrdp`
 - Guacamole-compatible network attachment via `guacamole_guac_remote`
 - Managed Brave policies for privacy defaults and Bitwarden extension bootstrap
 - Browser profile and cache kept out of Git
@@ -37,6 +38,20 @@ docker compose up -d
 ```
 
 The service joins the external Docker network `guacamole_guac_remote`. Ensure that network exists before starting the stack.
+
+## Audio
+
+XRDP audio redirection is enabled with PipeWire.
+
+The image includes:
+
+- `pipewire`
+- `pipewire-pulse`
+- `wireplumber`
+- `pipewire-module-xrdp`
+- `python3-xdg`
+
+The session wrapper starts the PipeWire user daemons before launching Brave and explicitly loads the XRDP PipeWire module when `XRDP_SESSION=1`. `python3-xdg` is installed so Openbox can also process the Debian XDG autostart hook without errors.
 
 ## Data Handling
 

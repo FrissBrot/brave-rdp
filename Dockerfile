@@ -8,11 +8,15 @@ ENV USER_UID=1000
 ENV USER_GID=1000
 ARG BITWARDEN_BASE_URL=https://vault.example.com
 
-RUN apt-get update && apt-get install -y \
+RUN echo "deb http://deb.debian.org/debian bookworm-backports main" > /etc/apt/sources.list.d/bookworm-backports.list && \
+    apt-get update && apt-get install -y \
     xrdp \
     openbox \
+    python3-xdg \
     dbus-x11 \
     xorgxrdp \
+    alsa-utils \
+    pulseaudio-utils \
     xterm \
     ca-certificates \
     sudo \
@@ -21,6 +25,11 @@ RUN apt-get update && apt-get install -y \
     procps \
     passwd \
     tini \
+    && apt-get install -y -t bookworm-backports \
+    pipewire \
+    pipewire-pulse \
+    wireplumber \
+    pipewire-module-xrdp \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 
@@ -137,6 +146,74 @@ EOF
 
 RUN chmod +x /usr/local/bin/start-browser.sh
 
+# Audio Session Start Script
+RUN cat > /usr/local/bin/start-audio.sh <<'EOF'
+#!/bin/sh
+set -eu
+
+USER_NAME="${USER_NAME:-user}"
+export HOME="/home/${USER_NAME}"
+export USER="${USER_NAME}"
+export LOGNAME="${USER_NAME}"
+export XDG_RUNTIME_DIR="/tmp/runtime-${USER_NAME}"
+export XDG_STATE_HOME="${HOME}/.local/state"
+AUDIO_LOG="${HOME}/pipewire-xrdp.log"
+
+mkdir -p \
+  "${XDG_RUNTIME_DIR}" \
+  "${HOME}/.config/pipewire" \
+  "${HOME}/.config/pulse" \
+  "${XDG_STATE_HOME}/wireplumber"
+chmod 700 "${XDG_RUNTIME_DIR}"
+
+: > "${AUDIO_LOG}"
+echo "XRDP_SESSION=${XRDP_SESSION:-}" >> "${AUDIO_LOG}"
+echo "XRDP_SOCKET_PATH=${XRDP_SOCKET_PATH:-}" >> "${AUDIO_LOG}"
+
+if ! pgrep -u "$(id -u)" -x pipewire >/dev/null 2>&1; then
+    pipewire >"${HOME}/pipewire.log" 2>&1 &
+fi
+
+if ! pgrep -u "$(id -u)" -x wireplumber >/dev/null 2>&1; then
+    wireplumber >"${HOME}/wireplumber.log" 2>&1 &
+fi
+
+if ! pgrep -u "$(id -u)" -x pipewire-pulse >/dev/null 2>&1; then
+    pipewire-pulse >"${HOME}/pipewire-pulse.log" 2>&1 &
+fi
+
+for _ in 1 2 3 4 5; do
+    if pactl info >/dev/null 2>&1; then
+        break
+    fi
+    sleep 1
+done
+
+if ! pactl info >/dev/null 2>&1; then
+    echo "PipeWire/PulseAudio compatibility layer did not become ready" >&2
+    exit 1
+fi
+
+if [ "${XRDP_SESSION:-0}" = "1" ] && [ -n "${XRDP_SOCKET_PATH:-}" ]; then
+    /usr/libexec/pipewire-module-xrdp/load_pw_modules.sh >>"${AUDIO_LOG}" 2>&1
+
+    for _ in 1 2 3 4 5; do
+        if pactl list short sinks 2>/dev/null | grep -q 'xrdp-sink'; then
+            exit 0
+        fi
+        sleep 1
+    done
+
+    echo "xrdp-sink was not created" >> "${AUDIO_LOG}"
+    pactl list short sinks >> "${AUDIO_LOG}" 2>&1 || true
+    exit 1
+fi
+
+exit 0
+EOF
+
+RUN chmod +x /usr/local/bin/start-audio.sh
+
 # XRDP/Openbox Session Wrapper:
 # startet Openbox, startet dann Brave im Vordergrund
 # und beendet die Session, sobald Brave geschlossen wird
@@ -167,6 +244,7 @@ cleanup() {
 
 trap cleanup EXIT INT TERM
 
+/usr/local/bin/start-audio.sh >> "${HOME}/pulse-start.log" 2>&1
 /usr/local/bin/start-browser.sh >> "${HOME}/browser-start.log" 2>&1
 BROWSER_RC=$?
 
