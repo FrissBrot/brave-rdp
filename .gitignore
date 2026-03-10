@@ -1,0 +1,13 @@
+.env
+.env.*
+!.env.example
+
+# Local runtime and browser profile data
+data/
+config/
+vault/
+
+# Logs and editor noise
+*.log
+*.pid
+.DS_Store
