@@ -6,7 +6,6 @@ ENV BROWSER_MODE=exit
 ENV USER_NAME=user
 ENV USER_UID=1000
 ENV USER_GID=1000
-ARG BITWARDEN_BASE_URL=https://vault.example.com
 
 RUN echo "deb http://deb.debian.org/debian bookworm-backports main" > /etc/apt/sources.list.d/bookworm-backports.list && \
     apt-get update && apt-get install -y \
@@ -83,22 +82,6 @@ RUN mkdir -p /etc/brave/policies/recommended && \
   "BrowserThemeColor": "#008000"
 }
 EOF
-
-RUN cat > /etc/brave/policies/managed/bitwarden.json <<'EOF'
-{
-  "3rdparty": {
-    "extensions": {
-      "nngceckbapebfimnlniiiahkandclblb": {
-        "environment": {
-          "base": "__BITWARDEN_BASE_URL__"
-        }
-      }
-    }
-  }
-}
-EOF
-
-RUN sed -i "s|__BITWARDEN_BASE_URL__|${BITWARDEN_BASE_URL}|g" /etc/brave/policies/managed/bitwarden.json
 
 # Benutzer anlegen
 RUN groupadd -g ${USER_GID} ${USER_NAME} && \
@@ -279,6 +262,7 @@ set -eu
 
 USER_NAME="${USER_NAME:-user}"
 USER_PASSWORD="${USER_PASSWORD:?USER_PASSWORD environment variable must be set}"
+BITWARDEN_BASE_URL="${BITWARDEN_BASE_URL:-https://vault.example.com}"
 
 HOME_DIR="/home/${USER_NAME}"
 RUNTIME_DIR="/tmp/runtime-${USER_NAME}"
@@ -296,6 +280,20 @@ chown -R ${USER_NAME}:${USER_NAME} "${HOME_DIR}" "${RUNTIME_DIR}"
 chmod 700 "${RUNTIME_DIR}"
 
 echo "${USER_NAME}:${USER_PASSWORD}" | chpasswd
+
+cat > /etc/brave/policies/managed/bitwarden.json <<POLICY
+{
+  "3rdparty": {
+    "extensions": {
+      "nngceckbapebfimnlniiiahkandclblb": {
+        "environment": {
+          "base": "${BITWARDEN_BASE_URL}"
+        }
+      }
+    }
+  }
+}
+POLICY
 
 rm -f /var/run/xrdp/xrdp-sesman.pid /var/run/xrdp/xrdp.pid
 

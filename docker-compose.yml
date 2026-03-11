@@ -3,8 +3,6 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
-      args:
-        BITWARDEN_BASE_URL: "${BITWARDEN_BASE_URL:-https://vault.example.com}"
     container_name: brave-workspace
     hostname: brave-workspace
     restart: unless-stopped
@@ -15,6 +13,7 @@ services:
     environment:
       BROWSER_MODE: "${BROWSER_MODE:-restart}"
       USER_PASSWORD: "${USER_PASSWORD:?set USER_PASSWORD in .env}"
+      BITWARDEN_BASE_URL: "${BITWARDEN_BASE_URL:-https://vault.example.com}"
 
     networks:
       - guacamole_guac_remote

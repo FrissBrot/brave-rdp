@@ -29,7 +29,7 @@ BITWARDEN_BASE_URL=https://vault.example.com
 
 `USER_PASSWORD` is required at runtime.
 `BROWSER_MODE=restart` restarts Brave inside the same XRDP session after crashes; `exit` closes the session when Brave exits.
-`BITWARDEN_BASE_URL` is injected during image build to configure the Bitwarden extension base URL.
+`BITWARDEN_BASE_URL` is injected at container start to configure the Bitwarden extension base URL, so it is not baked into the image.
 
 ## Run
 
