@@ -4,16 +4,16 @@ Remote Brave Browser workspace for RDP/Guacamole, packaged as a small Docker Com
 
 ## Features
 
-- Debian 12 based image with `xrdp`, `openbox`, and Brave Browser
+- Debian 12 based image with `xrdp`, `xorgxrdp`, `openbox`, and Brave Browser
 - Audio over XRDP via `pipewire`, `pipewire-pulse`, `wireplumber`, and `pipewire-module-xrdp`
-- Container-side hardening with disabled XRDP root login and `no-new-privileges`
+- Container-side hardening with disabled XRDP root login and Docker `no-new-privileges`
 - Guacamole-compatible network attachment via `guacamole_guac_remote`
 - Managed Brave policies for privacy defaults and Bitwarden extension bootstrap
-- Browser profile and cache kept out of Git
+- Browser profile and cache kept out of Git via Docker named volumes
 
 ## Repository Layout
 
-- `Dockerfile`: image build and XRDP session bootstrap
+- `Dockerfile`: image build, XRDP bootstrap, audio setup, and Brave policy configuration
 - `docker-compose.yml`: service definition and runtime configuration
 - `.env.example`: required environment variables template
 
@@ -28,6 +28,7 @@ BITWARDEN_BASE_URL=https://vault.example.com
 ```
 
 `USER_PASSWORD` is required at runtime.
+`BROWSER_MODE=restart` restarts Brave inside the same XRDP session after crashes; `exit` closes the session when Brave exits.
 `BITWARDEN_BASE_URL` is injected during image build to configure the Bitwarden extension base URL.
 
 ## Run
@@ -40,34 +41,32 @@ docker compose up -d
 
 The service joins the external Docker network `guacamole_guac_remote`. Ensure that network exists before starting the stack.
 
-## Hardening
+## Remote Access
+
+By default the service is only reachable on the Docker network for Guacamole.
+If you want direct RDP access on port `3389`, uncomment the `ports:` block in `docker-compose.yml`.
+
+Login details:
+
+- host: server IP or hostname
+- port: `3389`
+- username: `user`
+- password: value from `.env`
+
+## Hardening and Runtime Notes
 
 - The image does not install `sudo`, and the browser user has no local privilege escalation path.
 - XRDP root logins are disabled in `sesman.ini`.
-- The container runs with Docker `no-new-privileges`.
-- The healthcheck verifies both XRDP processes and the local RDP listener on port `3389`.
+- Docker `no-new-privileges` is enabled in the Compose service.
+- The healthcheck verifies both XRDP processes and the local RDP listener on `127.0.0.1:3389`.
 
 ## Audio
 
 XRDP audio redirection is enabled with PipeWire.
-
-The image includes:
-
-- `pipewire`
-- `pipewire-pulse`
-- `wireplumber`
-- `pipewire-module-xrdp`
-- `python3-xdg`
-
-The session wrapper starts the PipeWire user daemons before launching Brave and explicitly loads the XRDP PipeWire module when `XRDP_SESSION=1`. `python3-xdg` is installed so Openbox can also process the Debian XDG autostart hook without errors.
+The session wrapper starts the PipeWire user daemons before launching Brave and explicitly loads the XRDP PipeWire module when `XRDP_SESSION=1`.
+`python3-xdg` is installed so Openbox can process the Debian XDG autostart hook without errors.
 
 ## Data Handling
-
-The repository intentionally excludes local runtime data and browser profile data:
-
-- `data/`
-- `config/`
-- `vault/`
 
 The running container stores Brave state in Docker named volumes:
 
