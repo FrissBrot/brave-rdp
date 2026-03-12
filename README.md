@@ -6,7 +6,7 @@ Remote Brave Browser workspace for RDP/Guacamole, packaged as a small Docker Com
 
 - Debian 12 based image with `xrdp`, `xorgxrdp`, `openbox`, and Brave Browser
 - Audio over XRDP via `pipewire`, `pipewire-pulse`, `wireplumber`, and `pipewire-module-xrdp`
-- Container-side hardening with disabled XRDP root login, Docker `no-new-privileges`, and Chromium sandbox support
+- Container-side hardening with disabled XRDP root login, Docker `no-new-privileges`, Chromium sandbox support, and a dedicated seccomp profile
 - Guacamole-compatible network attachment via `guacamole_guac_remote`
 - Managed Brave policies for privacy defaults and Bitwarden extension bootstrap
 - Browser profile and cache kept out of Git via Docker named volumes
@@ -58,7 +58,7 @@ Login details:
 - The image does not install `sudo`, and the browser user has no local privilege escalation path.
 - XRDP root logins are disabled in `sesman.ini`.
 - Docker `no-new-privileges` is enabled in the Compose service.
-- Docker uses `seccomp=unconfined` so Brave can start with its own sandbox instead of the insecure `--no-sandbox` fallback. This is a deliberate tradeoff because Docker's default seccomp profile blocks the namespace syscalls Chromium needs.
+- Docker loads `seccomp/brave-seccomp.json`, which is based on the official Docker default seccomp profile and only adds the namespace syscalls Brave needs for its Chromium sandbox.
 - The healthcheck verifies both XRDP processes and the local RDP listener on `127.0.0.1:3389`.
 
 ## Audio

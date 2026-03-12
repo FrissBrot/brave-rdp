@@ -9,7 +9,7 @@ services:
     shm_size: "1gb"
     security_opt:
       - no-new-privileges:true
-      - seccomp=unconfined
+      - seccomp=./seccomp/brave-seccomp.json
 
     environment:
       BROWSER_MODE: "${BROWSER_MODE:-restart}"
