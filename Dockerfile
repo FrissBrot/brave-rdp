@@ -116,7 +116,6 @@ rm -f "$PROFILE_DIR/SingletonLock" \
       "$PROFILE_DIR/SingletonCookie"
 
 exec brave-browser \
-  --no-sandbox \
   --no-first-run \
   --no-default-browser-check \
   --start-maximized \
