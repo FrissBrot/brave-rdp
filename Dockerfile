@@ -22,6 +22,7 @@ RUN echo "deb http://deb.debian.org/debian bookworm-backports main" > /etc/apt/s
     gnupg \
     procps \
     passwd \
+    wmctrl \
     tini \
     && apt-get install -y -t bookworm-backports \
     pipewire \
@@ -86,6 +87,11 @@ EOF
 # Benutzer anlegen
 RUN groupadd -g ${USER_GID} ${USER_NAME} && \
     useradd -m -u ${USER_UID} -g ${USER_GID} -s /bin/bash ${USER_NAME}
+
+COPY scripts/restore-browser.sh /usr/local/bin/restore-browser.sh
+COPY scripts/browser-guardian.sh /usr/local/bin/browser-guardian.sh
+
+RUN chmod 755 /usr/local/bin/restore-browser.sh /usr/local/bin/browser-guardian.sh
 
 # Browser Start Script
 RUN cat > /usr/local/bin/start-browser.sh <<'EOF'
@@ -213,8 +219,12 @@ chmod 700 "$XDG_RUNTIME_DIR"
 
 openbox-session &
 OPENBOX_PID=$!
+/usr/local/bin/browser-guardian.sh &
+GUARDIAN_PID=$!
 
 cleanup() {
+    kill -TERM "$GUARDIAN_PID" 2>/dev/null || true
+    wait "$GUARDIAN_PID" 2>/dev/null || true
     openbox --exit >/dev/null 2>&1 || true
     kill -TERM "$OPENBOX_PID" 2>/dev/null || true
     wait "$OPENBOX_PID" 2>/dev/null || true
