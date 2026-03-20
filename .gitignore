@@ -1,6 +1,7 @@
 .env
 .env.*
 !.env.example
+docker-compose.local.yml
 
 # Local runtime and browser profile data
 data/

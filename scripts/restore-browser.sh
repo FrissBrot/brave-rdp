@@ -7,6 +7,7 @@ export USER="${USER_NAME}"
 export LOGNAME="${USER_NAME}"
 export XDG_RUNTIME_DIR="/tmp/runtime-${USER_NAME}"
 export XAUTHORITY="${HOME}/.Xauthority"
+KIOSK_URL="${KIOSK_URL:-}"
 
 PROFILE_DIR="${HOME}/.config/BraveSoftware/Brave-Browser"
 
@@ -23,7 +24,11 @@ WINDOW_ID="$(wmctrl -lx 2>/dev/null | awk 'BEGIN { IGNORECASE = 1 } /brave/ { pr
 
 if [ -n "${WINDOW_ID:-}" ]; then
     wmctrl -ir "$WINDOW_ID" -b remove,hidden >/dev/null 2>&1 || true
-    wmctrl -ir "$WINDOW_ID" -b add,maximized_vert,maximized_horz >/dev/null 2>&1 || true
+    if [ -n "$KIOSK_URL" ]; then
+        wmctrl -ir "$WINDOW_ID" -b add,fullscreen,maximized_vert,maximized_horz >/dev/null 2>&1 || true
+    else
+        wmctrl -ir "$WINDOW_ID" -b add,maximized_vert,maximized_horz >/dev/null 2>&1 || true
+    fi
     wmctrl -ia "$WINDOW_ID" >/dev/null 2>&1 || true
     exit 0
 fi

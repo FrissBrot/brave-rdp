@@ -1,49 +1,59 @@
+x-brave-common: &brave-common
+  build:
+    context: .
+    dockerfile: Dockerfile
+  image: brave-rdp:local
+  restart: unless-stopped
+  shm_size: "1gb"
+  security_opt:
+    - no-new-privileges:true
+    - seccomp=./seccomp/brave-seccomp.json
+  environment: &brave-env
+    BROWSER_MODE: "${BROWSER_MODE:-restart}"
+    USER_PASSWORD: "${USER_PASSWORD:?set USER_PASSWORD in .env}"
+    BITWARDEN_BASE_URL: "${BITWARDEN_BASE_URL:-https://vault.example.com}"
+  networks:
+    - guacamole_guac_remote
+  healthcheck:
+    test:
+      [
+        "CMD-SHELL",
+        "pgrep -x xrdp >/dev/null && pgrep -x xrdp-sesman >/dev/null && bash -lc ': >/dev/tcp/127.0.0.1/3389'",
+      ]
+    interval: 30s
+    timeout: 5s
+    retries: 3
+    start_period: 20s
+
 services:
   brave-workspace:
-    build:
-      context: .
-      dockerfile: Dockerfile
+    <<: *brave-common
     container_name: brave-workspace
     hostname: brave-workspace
-    restart: unless-stopped
-    shm_size: "1gb"
-    security_opt:
-      - no-new-privileges:true
-      - seccomp=./seccomp/brave-seccomp.json
-
     environment:
-      BROWSER_MODE: "${BROWSER_MODE:-restart}"
-      USER_PASSWORD: "${USER_PASSWORD:?set USER_PASSWORD in .env}"
-      BITWARDEN_BASE_URL: "${BITWARDEN_BASE_URL:-https://vault.example.com}"
-
-    networks:
-      - guacamole_guac_remote
-
+      <<: *brave-env
+      KIOSK_URL: "${KIOSK_URL:-}"
     volumes:
-      - brave_config:/home/user/.config/BraveSoftware
-      - brave_cache:/home/user/.cache/BraveSoftware
-      - brave_pki:/home/user/.pki
-
-    healthcheck:
-      test:
-        [
-          "CMD-SHELL",
-          "pgrep -x xrdp >/dev/null && pgrep -x xrdp-sesman >/dev/null && bash -lc ': >/dev/tcp/127.0.0.1/3389'",
-        ]
-      interval: 30s
-      timeout: 5s
-      retries: 3
-      start_period: 20s
+      - brave_data:/workspace-data
 
     # Nur freigeben, wenn du direkt per RDP drauf willst
     # ports:
     #   - "3389:3389"
+
+  brave-whatsapp:
+    <<: *brave-common
+    container_name: brave-whatsapp
+    hostname: brave-whatsapp
+    environment:
+      <<: *brave-env
+      KIOSK_URL: "https://web.whatsapp.com/"
+    volumes:
+      - brave_whatsapp_data:/workspace-data
 
 networks:
   guacamole_guac_remote:
     external: true
 
 volumes:
-  brave_config:
-  brave_cache:
-  brave_pki:
+  brave_data:
+  brave_whatsapp_data:

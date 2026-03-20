@@ -3,6 +3,8 @@ FROM debian:12
 ENV DEBIAN_FRONTEND=noninteractive
 ENV HOME=/home/user
 ENV BROWSER_MODE=exit
+ENV BROWSER_DATA_DIR=/workspace-data
+ENV KIOSK_URL=
 ENV USER_NAME=user
 ENV USER_UID=1000
 ENV USER_GID=1000
@@ -93,10 +95,32 @@ COPY scripts/browser-guardian.sh /usr/local/bin/browser-guardian.sh
 
 RUN chmod 755 /usr/local/bin/restore-browser.sh /usr/local/bin/browser-guardian.sh
 
+# Shared session env loader for XRDP sessions
+RUN cat > /usr/local/bin/load-session-env.sh <<'EOF'
+#!/bin/sh
+set -eu
+
+SESSION_ENV_FILE="/usr/local/etc/brave-session.env"
+
+if [ -f "$SESSION_ENV_FILE" ]; then
+    # shellcheck disable=SC1091
+    . "$SESSION_ENV_FILE"
+fi
+
+export BROWSER_MODE="${BROWSER_MODE:-}"
+export BROWSER_DATA_DIR="${BROWSER_DATA_DIR:-/workspace-data}"
+export BITWARDEN_BASE_URL="${BITWARDEN_BASE_URL:-https://vault.example.com}"
+export KIOSK_URL="${KIOSK_URL:-}"
+EOF
+
+RUN chmod +x /usr/local/bin/load-session-env.sh
+
 # Browser Start Script
 RUN cat > /usr/local/bin/start-browser.sh <<'EOF'
 #!/bin/sh
 set -eu
+
+. /usr/local/bin/load-session-env.sh
 
 USER_NAME="${USER_NAME:-user}"
 export HOME="/home/${USER_NAME}"
@@ -107,6 +131,7 @@ export XDG_RUNTIME_DIR="/tmp/runtime-${USER_NAME}"
 export XAUTHORITY="${HOME}/.Xauthority"
 
 PROFILE_DIR="${HOME}/.config/BraveSoftware/Brave-Browser"
+KIOSK_URL="${KIOSK_URL:-}"
 
 mkdir -p \
     "$XDG_RUNTIME_DIR" \
@@ -120,6 +145,15 @@ chmod 700 "$XDG_RUNTIME_DIR"
 rm -f "$PROFILE_DIR/SingletonLock" \
       "$PROFILE_DIR/SingletonSocket" \
       "$PROFILE_DIR/SingletonCookie"
+
+if [ -n "$KIOSK_URL" ]; then
+    exec brave-browser \
+      --no-first-run \
+      --no-default-browser-check \
+      --app="$KIOSK_URL" \
+      --start-fullscreen \
+      --user-data-dir="$PROFILE_DIR"
+fi
 
 exec brave-browser \
   --no-first-run \
@@ -205,6 +239,8 @@ RUN cat > /usr/local/bin/rdp-session.sh <<'EOF'
 #!/bin/sh
 set -eu
 
+. /usr/local/bin/load-session-env.sh
+
 USER_NAME="${USER_NAME:-user}"
 export HOME="/home/${USER_NAME}"
 export USER="${USER_NAME}"
@@ -272,21 +308,49 @@ set -eu
 USER_NAME="${USER_NAME:-user}"
 USER_PASSWORD="${USER_PASSWORD:?USER_PASSWORD environment variable must be set}"
 BITWARDEN_BASE_URL="${BITWARDEN_BASE_URL:-https://vault.example.com}"
+BROWSER_DATA_DIR="${BROWSER_DATA_DIR:-/workspace-data}"
+KIOSK_URL="${KIOSK_URL:-}"
 
 HOME_DIR="/home/${USER_NAME}"
 RUNTIME_DIR="/tmp/runtime-${USER_NAME}"
+SESSION_ENV_FILE="/usr/local/etc/brave-session.env"
 
 mkdir -p \
-    "${HOME_DIR}/.config/BraveSoftware" \
-    "${HOME_DIR}/.cache/BraveSoftware" \
-    "${HOME_DIR}/.pki" \
+    "${HOME_DIR}/.config" \
+    "${HOME_DIR}/.cache" \
+    "${BROWSER_DATA_DIR}/.config/BraveSoftware" \
+    "${BROWSER_DATA_DIR}/.cache/BraveSoftware" \
+    "${BROWSER_DATA_DIR}/.pki" \
     "${RUNTIME_DIR}" \
+    /usr/local/etc \
     /var/run/dbus \
     /var/run/xrdp
 
+rm -rf \
+    "${HOME_DIR}/.config/BraveSoftware" \
+    "${HOME_DIR}/.cache/BraveSoftware" \
+    "${HOME_DIR}/.pki"
+
+ln -s "${BROWSER_DATA_DIR}/.config/BraveSoftware" "${HOME_DIR}/.config/BraveSoftware"
+ln -s "${BROWSER_DATA_DIR}/.cache/BraveSoftware" "${HOME_DIR}/.cache/BraveSoftware"
+ln -s "${BROWSER_DATA_DIR}/.pki" "${HOME_DIR}/.pki"
+
+quote_shell_value() {
+    printf "%s" "$1" | sed "s/'/'\\\\''/g"
+}
+
+{
+    printf "BROWSER_MODE='%s'\n" "$(quote_shell_value "${BROWSER_MODE}")"
+    printf "BROWSER_DATA_DIR='%s'\n" "$(quote_shell_value "${BROWSER_DATA_DIR}")"
+    printf "BITWARDEN_BASE_URL='%s'\n" "$(quote_shell_value "${BITWARDEN_BASE_URL}")"
+    printf "KIOSK_URL='%s'\n" "$(quote_shell_value "${KIOSK_URL}")"
+    printf "export BROWSER_MODE BROWSER_DATA_DIR BITWARDEN_BASE_URL KIOSK_URL\n"
+} > "${SESSION_ENV_FILE}"
+
 touch "${HOME_DIR}/.Xauthority"
-chown -R ${USER_NAME}:${USER_NAME} "${HOME_DIR}" "${RUNTIME_DIR}"
+chown -R ${USER_NAME}:${USER_NAME} "${HOME_DIR}" "${RUNTIME_DIR}" "${BROWSER_DATA_DIR}"
 chmod 700 "${RUNTIME_DIR}"
+chmod 644 "${SESSION_ENV_FILE}"
 
 echo "${USER_NAME}:${USER_PASSWORD}" | chpasswd
 

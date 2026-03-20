@@ -7,6 +7,7 @@ export USER="${USER_NAME}"
 export LOGNAME="${USER_NAME}"
 export XDG_RUNTIME_DIR="/tmp/runtime-${USER_NAME}"
 export XAUTHORITY="${HOME}/.Xauthority"
+KIOSK_URL="${KIOSK_URL:-}"
 
 while :; do
     WINDOW_ID="$(wmctrl -lx 2>/dev/null | awk 'BEGIN { IGNORECASE = 1 } /brave/ { print $1; exit }')"
@@ -20,21 +21,31 @@ while :; do
                 ;;
         esac
 
-        case "$STATE" in
-            *_NET_WM_STATE_MAXIMIZED_VERT*)
-                ;;
-            *)
-                wmctrl -ir "$WINDOW_ID" -b add,maximized_vert >/dev/null 2>&1 || true
-                ;;
-        esac
+        if [ -n "$KIOSK_URL" ]; then
+            case "$STATE" in
+                *_NET_WM_STATE_FULLSCREEN*)
+                    ;;
+                *)
+                    wmctrl -ir "$WINDOW_ID" -b add,fullscreen >/dev/null 2>&1 || true
+                    ;;
+            esac
+        else
+            case "$STATE" in
+                *_NET_WM_STATE_MAXIMIZED_VERT*)
+                    ;;
+                *)
+                    wmctrl -ir "$WINDOW_ID" -b add,maximized_vert >/dev/null 2>&1 || true
+                    ;;
+            esac
 
-        case "$STATE" in
-            *_NET_WM_STATE_MAXIMIZED_HORZ*)
-                ;;
-            *)
-                wmctrl -ir "$WINDOW_ID" -b add,maximized_horz >/dev/null 2>&1 || true
-                ;;
-        esac
+            case "$STATE" in
+                *_NET_WM_STATE_MAXIMIZED_HORZ*)
+                    ;;
+                *)
+                    wmctrl -ir "$WINDOW_ID" -b add,maximized_horz >/dev/null 2>&1 || true
+                    ;;
+            esac
+        fi
     fi
 
     sleep 0.5
